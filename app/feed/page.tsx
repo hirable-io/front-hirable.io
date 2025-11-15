@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MapPin, Clock, DollarSign, Search, Briefcase, Users, Star } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 const mockJobs = [
   {
@@ -124,9 +125,13 @@ export default function FeedPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-primary-foreground font-bold">V</span>
-              </div>
+              <Image
+                src="/images/hirable-logo.png"
+                alt="Logo Hirable.io"
+                width={32}
+                height={32}
+                className="object-cover"
+              />
               <span className="font-bold text-xl text-foreground">Hirable.io</span>
             </Link>
 

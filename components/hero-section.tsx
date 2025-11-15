@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
+import Image from "next/image"
 
 export function HeroSection() {
   return (
@@ -30,12 +31,13 @@ export function HeroSection() {
           <div className="relative mx-auto max-w-5xl">
             <div className="rounded-lg border border-border bg-card/50 backdrop-blur-sm p-1">
               <div className="aspect-video rounded-md bg-muted/20 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
-                    <span className="text-primary font-bold text-xl">V</span>
-                  </div>
-                  <p className="text-muted-foreground">Interface da plataforma</p>
-                </div>
+                <Image
+                  src="/images/hirable.png"
+                  alt="Página inicial da listagem de vagas"
+                  width={1280}
+                  height={720}
+                  className="rounded-md object-cover"
+                />
               </div>
             </div>
           </div>
