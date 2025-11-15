@@ -51,7 +51,7 @@ export function BenefitsSection() {
             <Card key={index} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors">
-                  <benefit.icon className="h-6 w-6 text-accent" />
+                  <benefit.icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{benefit.title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">{benefit.description}</p>
