@@ -1,32 +1,56 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Save, Plus } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Save, X, Plus, Search } from "lucide-react"
 import { toast } from "sonner"
+import { tagService, type Tag, type ApiError } from "@/lib/services/tag-service"
+import { vacancyService } from "@/lib/services/vacancy-service"
+import { cn } from "@/lib/utils"
 
-const jobSchema = z.object({
-  title: z.string().min(5, "Título deve ter pelo menos 5 caracteres"),
-  description: z.string().min(50, "Descrição deve ter pelo menos 50 caracteres"),
-  location: z.string().min(3, "Localização é obrigatória"),
-  type: z.string().min(1, "Tipo de contrato é obrigatório"),
-  salary: z.string().optional(),
-  requirements: z.string().min(10, "Requisitos devem ter pelo menos 10 caracteres"),
-})
+// Schema de validação
+const jobSchema = z
+  .object({
+    title: z.string().min(5, "Título deve ter pelo menos 5 caracteres"),
+    description: z.string().min(50, "Descrição deve ter pelo menos 50 caracteres"),
+    location: z.string().min(3, "Localização é obrigatória"),
+    modality: z.enum(["REMOTE", "HYBRID", "ONSITE"], {
+      errorMap: () => ({ message: "Modalidade é obrigatória" }),
+    }),
+    minimumSalaryValue: z.number().min(0, "Salário mínimo deve ser maior ou igual a 0"),
+    maximumSalaryValue: z.number().min(0, "Salário máximo deve ser maior ou igual a 0"),
+    tags: z
+      .array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+        }),
+      )
+      .optional(),
+  })
+  .refine((data) => data.maximumSalaryValue >= data.minimumSalaryValue, {
+    message: "Salário máximo deve ser maior ou igual ao salário mínimo",
+    path: ["maximumSalaryValue"],
+  })
 
 type JobForm = z.infer<typeof jobSchema>
 
 export default function NewJobPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [availableTags, setAvailableTags] = useState<Tag[]>([])
+  const [tagSearch, setTagSearch] = useState("") // Estado para o filtro de texto
+  const router = useRouter()
 
   const form = useForm<JobForm>({
     resolver: zodResolver(jobSchema),
@@ -34,32 +58,55 @@ export default function NewJobPage() {
       title: "",
       description: "",
       location: "",
-      type: "",
-      salary: "",
-      requirements: "",
+      modality: "REMOTE" as const,
+      minimumSalaryValue: 0,
+      maximumSalaryValue: 0,
+      tags: [],
     },
   })
 
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const tags = await tagService.getTags()
+        setAvailableTags(Array.isArray(tags) ? tags : [])
+      } catch (error) {
+        console.error("Erro ao carregar tags:", error)
+        setAvailableTags([])
+      }
+    }
+    loadTags()
+  }, [])
+
   const onSubmit = async (data: JobForm) => {
     setIsLoading(true)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      console.log("[v0] New job data:", data)
-
+      await vacancyService.createVacancy(data)
       toast.success("Vaga criada com sucesso!", {
         description: "Sua vaga foi publicada e já está disponível para candidatos.",
       })
-
-      form.reset()
+      router.push("/dashboard/employer")
     } catch (error) {
-      toast.error("Erro ao criar vaga", {
-        description: "Tente novamente em alguns instantes.",
-      })
+      const apiError = error as ApiError
+      if (apiError.status === 401) {
+        router.push("/auth/login")
+      } else {
+        toast.error("Erro ao criar vaga", {
+          description: apiError.message || "Tente novamente em alguns instantes.",
+        })
+      }
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Filtra as tags disponíveis baseada na busca e remove as já selecionadas da lista
+  const filterAvailableTags = (currentSelected: Tag[]) => {
+    return availableTags.filter(
+      (tag) =>
+        !currentSelected.some((selected) => selected.id === tag.id) &&
+        tag.name.toLowerCase().includes(tagSearch.toLowerCase()),
+    )
   }
 
   return (
@@ -73,7 +120,6 @@ export default function NewJobPage() {
               </div>
               <span className="font-bold text-xl text-foreground">Hirable.io</span>
             </Link>
-
             <nav className="hidden md:flex items-center gap-6">
               <Link
                 href="/dashboard/employer"
@@ -81,11 +127,7 @@ export default function NewJobPage() {
               >
                 Dashboard
               </Link>
-              <Link href="/profile" className="text-muted-foreground hover:text-foreground transition-colors">
-                Perfil da Empresa
-              </Link>
             </nav>
-
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm">
                 Configurações
@@ -153,22 +195,20 @@ export default function NewJobPage() {
 
                   <FormField
                     control={form.control}
-                    name="type"
+                    name="modality"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tipo de Contrato *</FormLabel>
+                        <FormLabel>Modalidade *</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione o tipo" />
+                              <SelectValue placeholder="Selecione a modalidade" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="CLT">CLT</SelectItem>
-                            <SelectItem value="PJ">PJ</SelectItem>
-                            <SelectItem value="Estágio">Estágio</SelectItem>
-                            <SelectItem value="Freelancer">Freelancer</SelectItem>
-                            <SelectItem value="Temporário">Temporário</SelectItem>
+                            <SelectItem value="REMOTE">Remoto</SelectItem>
+                            <SelectItem value="HYBRID">Híbrido</SelectItem>
+                            <SelectItem value="ONSITE">Presencial</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -176,19 +216,51 @@ export default function NewJobPage() {
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="salary"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Faixa Salarial (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: R$ 5.000 - R$ 8.000" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="minimumSalaryValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Salário Mínimo (R$) *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Ex: 5000"
+                            {...field}
+                            onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="maximumSalaryValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Salário Máximo (R$) *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Ex: 8000"
+                            {...field}
+                            onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <FormField
                   control={form.control}
                   name="description"
@@ -198,7 +270,7 @@ export default function NewJobPage() {
                       <FormControl>
                         <Textarea
                           placeholder="Descreva as responsabilidades, objetivos e o que a empresa oferece..."
-                          className="min-h-[120px]"
+                          className="min-h-[120px] max-h-[300px] resize-none overflow-y-auto"
                           {...field}
                         />
                       </FormControl>
@@ -206,23 +278,82 @@ export default function NewJobPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* NOVA ABORDAGEM DE TAGS: SEM POPOVER, TOTALMENTE INLINE */}
                 <FormField
                   control={form.control}
-                  name="requirements"
+                  name="tags"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Requisitos e Qualificações *</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Liste os requisitos técnicos, experiência necessária, habilidades desejadas..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
+                    <FormItem className="flex flex-col gap-3">
+                      <FormLabel>Tags e Tecnologias</FormLabel>
+                      
+                      {/* 1. Área de Tags Selecionadas */}
+                      <div className={cn(
+                        "min-h-[42px] p-2 rounded-md border bg-background flex flex-wrap gap-2",
+                        (!field.value || field.value.length === 0) && "justify-center items-center border-dashed"
+                      )}>
+                        {(!field.value || field.value.length === 0) && (
+                          <span className="text-muted-foreground text-sm italic">Nenhuma tag selecionada</span>
+                        )}
+                        {field.value?.map((tag) => (
+                          <Badge key={tag.id} variant="secondary" className="pl-2 pr-1 py-1 flex items-center gap-1">
+                            {tag.name}
+                            <button
+                              type="button"
+                              onClick={() => field.onChange(field.value?.filter((t) => t.id !== tag.id))}
+                              className="hover:bg-destructive/20 hover:text-destructive rounded-full p-0.5 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+
+                      {/* 2. Área de Busca e Sugestões */}
+                      <div className="border rounded-md overflow-hidden">
+                        <div className="bg-muted/30 p-2 border-b flex items-center gap-2">
+                          <Search className="h-4 w-4 text-muted-foreground" />
+                          <input
+                            className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
+                            placeholder="Filtrar tags disponíveis..."
+                            value={tagSearch}
+                            onChange={(e) => setTagSearch(e.target.value)}
+                            // Impede que o Enter envie o formulário neste campo
+                            onKeyDown={(e) => { if(e.key === 'Enter') e.preventDefault(); }}
+                          />
+                        </div>
+                        
+                        <div className="p-2 max-h-[180px] overflow-y-auto bg-card">
+                          <div className="flex flex-wrap gap-2">
+                            {filterAvailableTags(field.value || []).map((tag) => (
+                              <Badge
+                                key={tag.id}
+                                variant="outline"
+                                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors py-1 pl-1 pr-2 flex items-center gap-1"
+                                onClick={() => {
+                                  const current = field.value || []
+                                  field.onChange([...current, tag])
+                                  setTagSearch("") // Limpa busca após selecionar
+                                }}
+                              >
+                                <Plus className="h-3 w-3" />
+                                {tag.name}
+                              </Badge>
+                            ))}
+                            {filterAvailableTags(field.value || []).length === 0 && (
+                              <span className="text-sm text-muted-foreground p-2 w-full text-center">
+                                {tagSearch ? "Nenhuma tag encontrada com esse nome." : "Todas as tags disponíveis já foram selecionadas."}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <div className="flex items-center gap-4 pt-6">
                   <Button
                     type="submit"

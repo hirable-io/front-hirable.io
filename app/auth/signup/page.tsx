@@ -5,11 +5,14 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { ArrowLeft, Eye, EyeOff, User, Building2 } from "lucide-react"
+import { toast } from "sonner"
+import { useAuth, type ApiError } from "@/hooks/use-auth"
 
 const baseSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -37,6 +40,8 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isEmployer, setIsEmployer] = useState(false)
+  const { registerCandidate, registerEmployer } = useAuth()
+  const router = useRouter()
 
   const schema = isEmployer ? employerSchema : jobSeekerSchema
 
@@ -62,9 +67,52 @@ export default function SignupPage() {
 
   const onSubmit = async (data: any) => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    console.log("[v0] Signup data:", data)
-    setIsLoading(false)
+    try {
+      if (isEmployer) {
+        await registerEmployer({
+          companyName: data.companyName,
+          contactName: data.contactName,
+          cnpj: data.cnpj,
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+          confirmPassword: data.confirmPassword,
+        })
+      } else {
+        await registerCandidate({
+          fullName: data.fullName,
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+          confirmPassword: data.confirmPassword,
+        })
+      }
+
+      toast.success('Conta criada com sucesso!')
+      router.push('/auth/login')
+    } catch (error) {
+      const apiError = error as ApiError
+      
+      if (apiError.status === 409) {
+        const errorMessage = apiError.message?.toLowerCase() || ''
+        if (errorMessage.includes('cnpj') || errorMessage.includes('document')) {
+          toast.error('CNPJ já cadastrado')
+        } else {
+          toast.error('Email já cadastrado')
+        }
+      } else if (apiError.status === 400) {
+        toast.error(apiError.message || 'Dados inválidos')
+      } else if (apiError.status === 0) {
+        toast.error('Erro de conexão. Tente novamente.')
+      } else {
+        toast.error(apiError.message || 'Erro ao criar conta')
+      }
+      
+      form.setValue('password', '')
+      form.setValue('confirmPassword', '')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleUserTypeChange = (checked: boolean) => {

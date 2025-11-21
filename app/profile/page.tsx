@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -12,94 +13,276 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { ArrowLeft, Upload, FileText, User, Trash2, Camera } from 'lucide-react'
+import { candidateService, type CandidateProfileResponse, type UpdateCandidateRequest, type ApiError } from "@/lib/services/candidate-service"
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
   phone: z.string().optional(),
-  jobTitle: z.string().optional(),
-  linkedinUrl: z.string().url("URL inválida").optional().or(z.literal("")),
+  linkedinUrl: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (val) => !val || val === "" || z.string().url().safeParse(val).success,
+      { message: "URL inválida" }
+    ),
 })
 
 type ProfileForm = z.infer<typeof profileSchema>
 
 export default function ProfilePage() {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [profile, setProfile] = useState<CandidateProfileResponse | null>(null)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+  const [profileError, setProfileError] = useState<ApiError | null>(null)
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [hasExistingResume, setHasExistingResume] = useState(false)
-  const [existingResumeFileName, setExistingResumeFileName] = useState("curriculo_joao_silva.pdf")
-  const [profileImage, setProfileImage] = useState<string | null>("/abstract-profile.png")
+  const [existingResumeFileName, setExistingResumeFileName] = useState<string | null>(null)
+  const [profileImage, setProfileImage] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [isUploadingResume, setIsUploadingResume] = useState(false)
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: "João Silva",
-      email: "joao.silva@email.com",
-      phone: "(11) 99999-9999",
-      jobTitle: "Desenvolvedor Frontend Sênior",
-      linkedinUrl: "https://linkedin.com/in/joaosilva",
+      fullName: "",
+      phone: "",
+      linkedinUrl: "",
     },
   })
 
-  const onSubmit = async (data: ProfileForm) => {
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    console.log("[v0] Profile data:", data)
-    console.log("[v0] Profile image file:", imageFile)
-    toast.success("Perfil atualizado com sucesso!")
-    setIsLoading(false)
+  const loadProfile = async () => {
+    setIsLoadingProfile(true)
+    setProfileError(null)
+    try {
+      const data = await candidateService.getProfile()
+      setProfile(data)
+      
+      // Preencher formulário com dados carregados
+      form.reset({
+        fullName: data.fullName || "",
+        phone: data.phone || "",
+        linkedinUrl: data.linkedInUrl || "",
+      })
+
+      // Carregar foto de perfil se existir (priorizar imageUrl do candidate)
+      if (data.imageUrl) {
+        setProfileImage(data.imageUrl)
+      } else if (data.user?.imageUrl) {
+        setProfileImage(data.user.imageUrl)
+      } else {
+        setProfileImage(null)
+      }
+
+      // Carregar informações do currículo se existir
+      if (data.resumeUrl) {
+        setHasExistingResume(true)
+        // Extrair nome do arquivo da URL ou usar nome genérico
+        const fileName = data.resumeUrl.split('/').pop() || 'curriculo.pdf'
+        setExistingResumeFileName(fileName)
+      } else {
+        setHasExistingResume(false)
+        setExistingResumeFileName(null)
+      }
+    } catch (err) {
+      console.error('[ProfilePage] Error loading profile:', err)
+      const apiError = err as ApiError
+      setProfileError(apiError)
+      if (apiError?.status === 401) {
+        router.push('/auth/login')
+        return
+      }
+      toast.error('Erro ao carregar perfil', {
+        description: apiError?.message || 'Tente novamente mais tarde.',
+      })
+    } finally {
+      setIsLoadingProfile(false)
+    }
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    loadProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const onSubmit = async (data: ProfileForm) => {
+    setIsLoading(true)
+    try {
+      const updateData: UpdateCandidateRequest = {
+        fullName: data.fullName,
+        phone: data.phone || undefined,
+        linkedInUrl: data.linkedinUrl || undefined,
+      }
+      
+      const updated = await candidateService.updateProfile(updateData)
+      setProfile(updated)
+      toast.success('Perfil atualizado com sucesso!')
+    } catch (err) {
+      const apiError = err as ApiError
+      if (apiError.status === 401) {
+        router.push('/auth/login')
+        return
+      }
+      toast.error('Erro ao atualizar perfil', {
+        description: apiError.message || 'Tente novamente mais tarde.',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const validateImageFile = (file: File): string | null => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      return 'Apenas imagens JPG, PNG ou WebP são aceitas'
+    }
+    
+    const maxSize = 2 * 1024 * 1024 // 2MB
+    if (file.size > maxSize) {
+      return 'Imagem deve ter no máximo 2MB'
+    }
+    
+    return null
+  }
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      if (!file.type.startsWith("image/")) {
-        toast.error("Apenas imagens são aceitas")
+    if (!file) return
+
+    // Validação
+    const validationError = validateImageFile(file)
+    if (validationError) {
+      toast.error(validationError)
+      // Limpar input para permitir selecionar o mesmo arquivo novamente
+      event.target.value = ''
+      return
+    }
+
+    // Salvar imagem anterior para reverter em caso de erro
+    const previousImage = profileImage
+
+    // Preview imediato
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string
+      setProfileImage(imageUrl)
+      setImageFile(file)
+    }
+    reader.readAsDataURL(file)
+
+    // Upload
+    setIsUploadingImage(true)
+    try {
+      const response = await candidateService.uploadProfileImage(file)
+      setProfileImage(response.url)
+      // Atualizar profile se necessário (priorizar imageUrl do candidate)
+      if (profile) {
+        setProfile({
+          ...profile,
+          imageUrl: response.url,
+          user: { ...profile.user, imageUrl: response.url },
+        })
+      }
+      toast.success('Foto de perfil atualizada com sucesso!')
+    } catch (err) {
+      const apiError = err as ApiError
+      if (apiError.status === 401) {
+        router.push('/auth/login')
         return
       }
-
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error("Imagem deve ter no máximo 2MB")
-        return
+      toast.error('Erro ao fazer upload da imagem', {
+        description: apiError.message || 'Tente novamente mais tarde.',
+      })
+      // Reverter para imagem anterior em caso de erro
+      if (previousImage) {
+        setProfileImage(previousImage)
+      } else if (profile?.imageUrl) {
+        setProfileImage(profile.imageUrl)
+      } else if (profile?.user?.imageUrl) {
+        setProfileImage(profile.user.imageUrl)
+      } else {
+        setProfileImage(null)
       }
-
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string
-        setProfileImage(imageUrl)
-        setImageFile(file)
-        toast.success("Imagem de perfil atualizada!")
-      }
-      reader.readAsDataURL(file)
+      setImageFile(null)
+    } finally {
+      setIsUploadingImage(false)
+      // Limpar input para permitir selecionar o mesmo arquivo novamente
+      event.target.value = ''
     }
   }
 
   const handleRemoveImage = () => {
-    setProfileImage("/abstract-profile.png")
+    setProfileImage(null)
     setImageFile(null)
+    if (profile) {
+      setProfile({
+        ...profile,
+        imageUrl: undefined,
+        user: { ...profile.user, imageUrl: undefined },
+      })
+    }
     toast.success("Imagem removida")
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const validateResumeFile = (file: File): string | null => {
+    if (file.type !== 'application/pdf') {
+      return 'Apenas arquivos PDF são aceitos'
+    }
+    
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      return 'Arquivo deve ter no máximo 5MB'
+    }
+    
+    return null
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      if (file.type !== "application/pdf") {
-        toast.error("Apenas arquivos PDF são aceitos")
-        return
-      }
+    if (!file) return
 
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Arquivo deve ter no máximo 5MB")
-        return
-      }
+    // Validação
+    const validationError = validateResumeFile(file)
+    if (validationError) {
+      toast.error(validationError)
+      // Limpar input para permitir selecionar o mesmo arquivo novamente
+      event.target.value = ''
+      return
+    }
 
-      setResumeFile(file)
-      setHasExistingResume(true)
+    // Upload
+    setIsUploadingResume(true)
+    try {
+      const response = await candidateService.uploadResume(file)
       setExistingResumeFileName(file.name)
-      toast.success("Currículo enviado com sucesso!")
+      setHasExistingResume(true)
+      setResumeFile(file)
+      // Atualizar profile se necessário
+      if (profile) {
+        setProfile({
+          ...profile,
+          resumeUrl: response.resumeUrl,
+        })
+      }
+      toast.success('Currículo enviado com sucesso!')
+    } catch (err) {
+      const apiError = err as ApiError
+      if (apiError.status === 401) {
+        router.push('/auth/login')
+        return
+      }
+      toast.error('Erro ao fazer upload do currículo', {
+        description: apiError.message || 'Tente novamente mais tarde.',
+      })
+    } finally {
+      setIsUploadingResume(false)
+      // Limpar input para permitir selecionar o mesmo arquivo novamente
+      event.target.value = ''
     }
   }
 
@@ -131,6 +314,50 @@ export default function ProfilePage() {
             </p>
           </div>
 
+          {isLoadingProfile ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="border-border/50 shadow-lg">
+                <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-64 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <Skeleton className="h-40 w-40 rounded-full mx-auto" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 shadow-lg">
+                <CardHeader>
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-48 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-32 w-full" />
+                </CardContent>
+              </Card>
+            </div>
+          ) : profileError ? (
+            <Card className="border-border/50 shadow-lg">
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <h3 className="text-lg font-medium text-foreground mb-2">Erro ao carregar perfil</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {profileError.status === 0
+                      ? 'Erro de conexão. Verifique sua internet e tente novamente.'
+                      : profileError.message || 'Ocorreu um erro inesperado. Por favor, tente novamente em alguns instantes.'}
+                  </p>
+                  <Button onClick={loadProfile} variant="outline">
+                    Tentar novamente
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <Card className="border-border/50 shadow-lg">
               <CardHeader>
@@ -143,36 +370,53 @@ export default function ProfilePage() {
               <CardContent>
                 <div className="mb-6 flex flex-col items-center">
                   <div className="relative mb-4">
-                    <Image
-                      src={profileImage || "/placeholder.svg?height=150&width=150&query=profile"}
-                      alt="Foto de perfil"
-                      width={150}
-                      height={150}
-                      className="h-40 w-40 rounded-full object-cover border-4 border-primary/20"
-                    />
+                    {profileImage ? (
+                      <Image
+                        src={profileImage}
+                        alt="Foto de perfil"
+                        width={150}
+                        height={150}
+                        className="h-40 w-40 rounded-full object-cover border-4 border-primary/20"
+                        onError={() => {
+                          setProfileImage(null)
+                        }}
+                      />
+                    ) : (
+                      <div className="h-40 w-40 rounded-full bg-muted border-4 border-primary/20 flex items-center justify-center">
+                        <User className="h-20 w-20 text-muted-foreground" />
+                      </div>
+                    )}
                     <button
-                      onClick={() => document.getElementById("profile-image-upload")?.click()}
-                      className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+                      onClick={() => !isUploadingImage && document.getElementById("profile-image-upload")?.click()}
+                      className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Alterar foto de perfil"
+                      disabled={isUploadingImage}
                     >
                       <Camera className="h-5 w-5" />
                     </button>
+                    {isUploadingImage && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
+                        <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => document.getElementById("profile-image-upload")?.click()}
+                      disabled={isUploadingImage}
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      Upload de Foto
+                      {isUploadingImage ? "Enviando..." : "Upload de Foto"}
                     </Button>
-                    {profileImage !== "/abstract-profile.png" && (
+                    {profileImage && !isUploadingImage && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={handleRemoveImage}
                         className="text-destructive hover:text-destructive"
+                        disabled={isUploadingImage}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -207,25 +451,19 @@ export default function ProfilePage() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="seu@email.com"
-                                type="email"
-                                disabled
-                                className="bg-muted/50"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {profile?.user?.email && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Email</label>
+                          <Input
+                            value={profile.user.email}
+                            disabled
+                            className="bg-muted/50 cursor-not-allowed"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            O email não pode ser alterado
+                          </p>
+                        </div>
+                      )}
 
                       <FormField
                         control={form.control}
@@ -235,20 +473,6 @@ export default function ProfilePage() {
                             <FormLabel>Telefone (opcional)</FormLabel>
                             <FormControl>
                               <Input placeholder="(11) 99999-9999" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="jobTitle"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Título Profissional</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ex: Desenvolvedor Frontend Sênior" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -293,31 +517,42 @@ export default function ProfilePage() {
               <CardContent>
                 <div className="space-y-4">
                   {hasExistingResume ? (
-                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-secondary" />
-                        <div>
-                          <p className="font-medium text-foreground">{existingResumeFileName}</p>
-                          <p className="text-sm text-muted-foreground">PDF • Enviado</p>
+                    <div className="relative p-4 bg-muted/30 rounded-lg border border-border/50">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <FileText className="h-8 w-8 text-secondary flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-foreground truncate">{existingResumeFileName}</p>
+                            <p className="text-sm text-muted-foreground">PDF • {isUploadingResume ? "Enviando..." : "Enviado"}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => !isUploadingResume && document.getElementById("resume-upload")?.click()}
+                            disabled={isUploadingResume}
+                          >
+                            {isUploadingResume ? "Enviando..." : "Trocar Arquivo"}
+                          </Button>
+                          {!isUploadingResume && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRemoveResume}
+                              className="text-destructive hover:text-destructive bg-transparent"
+                              disabled={isUploadingResume}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => document.getElementById("resume-upload")?.click()}
-                        >
-                          Trocar Arquivo
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRemoveResume}
-                          className="text-destructive hover:text-destructive bg-transparent"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {isUploadingResume && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10">
+                          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border/50 rounded-lg bg-muted/20">
@@ -328,11 +563,12 @@ export default function ProfilePage() {
                       </p>
                       <Button
                         variant="outline"
-                        onClick={() => document.getElementById("resume-upload")?.click()}
+                        onClick={() => !isUploadingResume && document.getElementById("resume-upload")?.click()}
                         className="flex items-center gap-2"
+                        disabled={isUploadingResume}
                       >
                         <Upload className="h-4 w-4" />
-                        Fazer Upload
+                        {isUploadingResume ? "Enviando..." : "Fazer Upload"}
                       </Button>
                     </div>
                   )}
@@ -348,6 +584,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
       </div>
     </div>

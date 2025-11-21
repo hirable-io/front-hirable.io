@@ -5,11 +5,15 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { toast } from "sonner"
+import { useAuth, type ApiError } from "@/hooks/use-auth"
+import { tokenStorage } from "@/lib/storage/token-storage"
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -21,6 +25,8 @@ type LoginForm = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const { login } = useAuth()
+  const router = useRouter()
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -32,9 +38,34 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    console.log("[v0] Login data:", data)
-    setIsLoading(false)
+    try {
+      await login(data.email, data.password)
+      
+      const payload = tokenStorage.getDecodedToken()
+      if (payload) {
+        if (payload.role === 'CANDIDATE') {
+          router.push('/feed')
+        } else if (payload.role === 'EMPLOYER') {
+          router.push('/dashboard/employer')
+        }
+      }
+    } catch (error) {
+      const apiError = error as ApiError
+      
+      if (apiError.status === 404) {
+        toast.error('Email ou senha inválidos')
+      } else if (apiError.status === 400) {
+        toast.error(apiError.message || 'Dados inválidos')
+      } else if (apiError.status === 0) {
+        toast.error('Erro de conexão. Tente novamente.')
+      } else {
+        toast.error(apiError.message || 'Erro ao fazer login')
+      }
+      
+      form.setValue('password', '')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
