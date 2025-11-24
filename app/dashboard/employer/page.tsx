@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -85,16 +86,13 @@ export default function EmployerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage])
 
-  // Filtrar vagas localmente baseado no termo de busca
   const filteredVacancies = vacancies.filter((vacancy) =>
     vacancy.title.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Calcular estatísticas baseadas em dados reais
   const activeJobs = vacancies.filter((v) => v.status === "OPEN").length
   const closedJobs = vacancies.filter((v) => v.status === "CLOSED").length
 
-  // Mapear modalidade para texto em português
   const getModalityLabel = (modality: string) => {
     switch (modality) {
       case "REMOTE":
@@ -108,7 +106,6 @@ export default function EmployerDashboard() {
     }
   }
 
-  // Mapear status para texto em português
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "OPEN":
@@ -120,7 +117,6 @@ export default function EmployerDashboard() {
     }
   }
 
-  // Função para excluir vaga
   const handleDeleteVacancy = async () => {
     if (!deletingVacancy) return
 
@@ -132,16 +128,12 @@ export default function EmployerDashboard() {
         description: "A vaga foi removida permanentemente.",
       })
 
-      // Ajustar paginação se necessário
       const newTotal = total - 1
       const newTotalPages = Math.ceil(newTotal / VACANCIES_PER_PAGE)
       
-      // Se a última vaga da última página foi excluída, voltar uma página
       if (currentPage > newTotalPages && newTotalPages > 0) {
         setCurrentPage(newTotalPages)
-        // loadVacancies será chamado automaticamente pelo useEffect quando currentPage mudar
       } else {
-        // Recarregar lista na página atual
         await loadVacancies(currentPage)
       }
 
@@ -167,9 +159,13 @@ export default function EmployerDashboard() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-primary-foreground font-bold">V</span>
-              </div>
+              <Image
+                src="/images/hirable-logo.png"
+                alt="Logo Hirable.io"
+                width={32}
+                height={32}
+                className="object-cover"
+              />
               <span className="font-bold text-xl text-foreground">Hirable.io</span>
             </Link>
 

@@ -25,7 +25,6 @@ import { tagService, type Tag, type ApiError } from "@/lib/services/tag-service"
 import { vacancyService, type VacancyResponse, type UpdateVacancyFormData } from "@/lib/services/vacancy-service"
 import { cn } from "@/lib/utils"
 
-// Schema de validação (mesmo do formulário de criação)
 const jobSchema = z
   .object({
     title: z.string().min(5, "Título deve ter pelo menos 5 caracteres"),
@@ -78,7 +77,6 @@ export function VacancyEditDialog({ vacancy, open, onOpenChange, onSuccess }: Va
     },
   })
 
-  // Carregar tags disponíveis
   useEffect(() => {
     const loadTags = async () => {
       try {
@@ -94,7 +92,6 @@ export function VacancyEditDialog({ vacancy, open, onOpenChange, onSuccess }: Va
     }
   }, [open])
 
-  // Pré-preencher formulário quando a vaga mudar
   useEffect(() => {
     if (vacancy && open) {
       form.reset({
@@ -148,7 +145,6 @@ export function VacancyEditDialog({ vacancy, open, onOpenChange, onSuccess }: Va
     }
   }
 
-  // Filtra as tags disponíveis baseada na busca e remove as já selecionadas da lista
   const filterAvailableTags = (currentSelected: Tag[]) => {
     return availableTags.filter(
       (tag) =>

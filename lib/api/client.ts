@@ -15,9 +15,9 @@ class ApiClient {
     const url = getApiUrl(endpoint);
     const token = tokenStorage.getToken();
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     if (token) {
@@ -76,7 +76,7 @@ class ApiClient {
     const url = getApiUrl(endpoint);
     const token = tokenStorage.getToken();
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
@@ -94,18 +94,15 @@ class ApiClient {
         await this.handleErrorResponse(response);
       }
 
-      // DELETE pode retornar 204 No Content sem body
       if (response.status === 204) {
         return undefined as T;
       }
 
-      // Verificar se há conteúdo antes de fazer parse
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         return undefined as T;
       }
 
-      // Se houver conteúdo JSON, fazer parse
       const text = await response.text();
       if (!text) {
         return undefined as T;
@@ -133,8 +130,7 @@ class ApiClient {
     const url = getApiUrl(endpoint);
     const token = tokenStorage.getToken();
 
-    const headers: HeadersInit = {};
-    // Não definir Content-Type - deixa browser definir com boundary
+    const headers: Record<string, string> = {};
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;

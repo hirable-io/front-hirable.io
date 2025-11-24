@@ -46,17 +46,15 @@ export function ApplicationConfirmDialog({
         description: "Sua candidatura para esta vaga foi registrada.",
       })
 
-      // Chamar callback de sucesso se fornecido
+      
       if (onSuccess) {
         onSuccess()
       }
 
-      // Fechar diálogo
       onOpenChange(false)
     } catch (error) {
       const apiError = error as ApiError
 
-      // Tratar erro 401 (não autenticado)
       if (apiError.status === 401) {
         toast.error("Sessão expirada", {
           description: "Por favor, faça login novamente.",
@@ -66,7 +64,6 @@ export function ApplicationConfirmDialog({
         return
       }
 
-      // Tratar erro 409 (já aplicou)
       if (apiError.status === 409) {
         toast.error("Você já aplicou para esta vaga", {
           description: "Esta vaga já está na sua lista de candidaturas.",
@@ -75,7 +72,6 @@ export function ApplicationConfirmDialog({
         return
       }
 
-      // Tratar erro 404 (vaga não encontrada)
       if (apiError.status === 404) {
         toast.error("Vaga não encontrada", {
           description: "Esta vaga não está mais disponível.",
@@ -84,7 +80,6 @@ export function ApplicationConfirmDialog({
         return
       }
 
-      // Tratar outros erros
       toast.error("Erro ao enviar candidatura", {
         description: apiError.message || "Tente novamente em alguns instantes.",
       })

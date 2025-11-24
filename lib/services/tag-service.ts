@@ -19,8 +19,6 @@ class TagService {
       const tags = await apiClient.get<Tag[]>(API_ENDPOINTS.TAGS);
       return tags;
     } catch (error) {
-      // Se a requisição falhar (API não disponível, erro de rede, 404, etc),
-      // usar tags mockadas sem exibir erro ao usuário
       if (process.env.NODE_ENV === 'development') {
         const apiError = error as ApiError;
         console.warn('[TagService] API de tags indisponível, usando tags mockadas:', {

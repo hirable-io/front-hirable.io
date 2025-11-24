@@ -156,9 +156,6 @@ export default function ApplicationsPage() {
 
                       <div className="flex items-center gap-2 ml-4 flex-wrap">
                         <Badge variant="secondary">{getModalityLabel(vacancy.modality)}</Badge>
-                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                          {getApplicationStatusLabel(application.status)}
-                        </Badge>
                       </div>
                     </div>
                   </CardHeader>

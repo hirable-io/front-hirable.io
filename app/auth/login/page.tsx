@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import Image from "next/image"
 import { toast } from "sonner"
 import { useAuth, type ApiError } from "@/hooks/use-auth"
 import { tokenStorage } from "@/lib/storage/token-storage"
@@ -84,9 +85,13 @@ export default function LoginPage() {
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="text-center space-y-2">
             <div className="flex justify-center mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-                <span className="text-primary-foreground font-bold text-lg">V</span>
-              </div>
+              <Image
+                src="/images/hirable-logo.png"
+                alt="Logo Hirable.io"
+                width={48}
+                height={48}
+                className="object-cover"
+              />
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">Entrar na sua conta</CardTitle>
             <CardDescription className="text-muted-foreground">

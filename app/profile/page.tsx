@@ -11,6 +11,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -29,6 +30,7 @@ const profileSchema = z.object({
       (val) => !val || val === "" || z.string().url().safeParse(val).success,
       { message: "URL inválida" }
     ),
+  bio: z.string().max(255, "Biografia deve ter no máximo 255 caracteres").optional().or(z.literal("")),
 })
 
 type ProfileForm = z.infer<typeof profileSchema>
@@ -53,6 +55,7 @@ export default function ProfilePage() {
       fullName: "",
       phone: "",
       linkedinUrl: "",
+      bio: "",
     },
   })
 
@@ -63,14 +66,13 @@ export default function ProfilePage() {
       const data = await candidateService.getProfile()
       setProfile(data)
       
-      // Preencher formulário com dados carregados
       form.reset({
         fullName: data.fullName || "",
         phone: data.phone || "",
         linkedinUrl: data.linkedInUrl || "",
+        bio: data.bio || "",
       })
 
-      // Carregar foto de perfil se existir (priorizar imageUrl do candidate)
       if (data.imageUrl) {
         setProfileImage(data.imageUrl)
       } else if (data.user?.imageUrl) {
@@ -79,10 +81,8 @@ export default function ProfilePage() {
         setProfileImage(null)
       }
 
-      // Carregar informações do currículo se existir
       if (data.resumeUrl) {
         setHasExistingResume(true)
-        // Extrair nome do arquivo da URL ou usar nome genérico
         const fileName = data.resumeUrl.split('/').pop() || 'curriculo.pdf'
         setExistingResumeFileName(fileName)
       } else {
@@ -117,6 +117,7 @@ export default function ProfilePage() {
         fullName: data.fullName,
         phone: data.phone || undefined,
         linkedInUrl: data.linkedinUrl || undefined,
+        bio: data.bio || undefined,
       }
       
       const updated = await candidateService.updateProfile(updateData)
@@ -154,19 +155,15 @@ export default function ProfilePage() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    // Validação
     const validationError = validateImageFile(file)
     if (validationError) {
       toast.error(validationError)
-      // Limpar input para permitir selecionar o mesmo arquivo novamente
       event.target.value = ''
       return
     }
 
-    // Salvar imagem anterior para reverter em caso de erro
     const previousImage = profileImage
 
-    // Preview imediato
     const reader = new FileReader()
     reader.onload = (e) => {
       const imageUrl = e.target?.result as string
@@ -175,12 +172,10 @@ export default function ProfilePage() {
     }
     reader.readAsDataURL(file)
 
-    // Upload
     setIsUploadingImage(true)
     try {
       const response = await candidateService.uploadProfileImage(file)
       setProfileImage(response.url)
-      // Atualizar profile se necessário (priorizar imageUrl do candidate)
       if (profile) {
         setProfile({
           ...profile,
@@ -198,7 +193,6 @@ export default function ProfilePage() {
       toast.error('Erro ao fazer upload da imagem', {
         description: apiError.message || 'Tente novamente mais tarde.',
       })
-      // Reverter para imagem anterior em caso de erro
       if (previousImage) {
         setProfileImage(previousImage)
       } else if (profile?.imageUrl) {
@@ -211,22 +205,42 @@ export default function ProfilePage() {
       setImageFile(null)
     } finally {
       setIsUploadingImage(false)
-      // Limpar input para permitir selecionar o mesmo arquivo novamente
       event.target.value = ''
     }
   }
 
-  const handleRemoveImage = () => {
-    setProfileImage(null)
-    setImageFile(null)
-    if (profile) {
-      setProfile({
-        ...profile,
-        imageUrl: undefined,
-        user: { ...profile.user, imageUrl: undefined },
+  const handleRemoveImage = async () => {
+    try {
+      const updated = await candidateService.deleteProfileImage()
+      
+      if (!updated) {
+        await loadProfile()
+        return
+      }
+      
+      setProfile(updated)
+      
+      if (updated.imageUrl) {
+        setProfileImage(updated.imageUrl)
+      } else if (updated.user?.imageUrl) {
+        setProfileImage(updated.user.imageUrl)
+      } else {
+        setProfileImage(null)
+      }
+      setImageFile(null)
+      
+      toast.success("Imagem removida com sucesso!")
+    } catch (err) {
+      const apiError = err as ApiError
+      if (apiError.status === 401) {
+        router.push('/auth/login')
+        return
+      }
+      console.error('[handleRemoveImage] Error:', err)
+      toast.error('Erro ao remover imagem', {
+        description: apiError.message || 'Tente novamente mais tarde.',
       })
     }
-    toast.success("Imagem removida")
   }
 
   const validateResumeFile = (file: File): string | null => {
@@ -246,23 +260,19 @@ export default function ProfilePage() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    // Validação
     const validationError = validateResumeFile(file)
     if (validationError) {
       toast.error(validationError)
-      // Limpar input para permitir selecionar o mesmo arquivo novamente
       event.target.value = ''
       return
     }
 
-    // Upload
     setIsUploadingResume(true)
     try {
       const response = await candidateService.uploadResume(file)
       setExistingResumeFileName(file.name)
       setHasExistingResume(true)
       setResumeFile(file)
-      // Atualizar profile se necessário
       if (profile) {
         setProfile({
           ...profile,
@@ -281,16 +291,43 @@ export default function ProfilePage() {
       })
     } finally {
       setIsUploadingResume(false)
-      // Limpar input para permitir selecionar o mesmo arquivo novamente
       event.target.value = ''
     }
   }
 
-  const handleRemoveResume = () => {
-    setResumeFile(null)
-    setHasExistingResume(false)
-    setExistingResumeFileName("")
-    toast.success("Currículo removido")
+  const handleRemoveResume = async () => {
+    try {
+      const updated = await candidateService.deleteResume()
+      
+      if (!updated) {
+        await loadProfile()
+        return
+      }
+      
+      setProfile(updated)
+      
+      if (updated.resumeUrl) {
+        setHasExistingResume(true)
+        const fileName = updated.resumeUrl.split('/').pop() || 'curriculo.pdf'
+        setExistingResumeFileName(fileName)
+      } else {
+        setHasExistingResume(false)
+        setExistingResumeFileName(null)
+      }
+      setResumeFile(null)
+      
+      toast.success("Currículo removido com sucesso!")
+    } catch (err) {
+      const apiError = err as ApiError
+      if (apiError.status === 401) {
+        router.push('/auth/login')
+        return
+      }
+      console.error('[handleRemoveResume] Error:', err)
+      toast.error('Erro ao remover currículo', {
+        description: apiError.message || 'Tente novamente mais tarde.',
+      })
+    }
   }
 
   return (
@@ -489,6 +526,27 @@ export default function ProfilePage() {
                               <Input placeholder="https://linkedin.com/in/seuperfil" {...field} />
                             </FormControl>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="bio"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Biografia (opcional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Conte um pouco sobre você, suas experiências e objetivos profissionais..."
+                                className="min-h-[120px] resize-none"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            <p className="text-xs text-muted-foreground">
+                              Compartilhe informações sobre sua trajetória profissional
+                            </p>
                           </FormItem>
                         )}
                       />

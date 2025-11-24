@@ -37,7 +37,6 @@ export function Header() {
 
         <nav className="hidden md:flex items-center gap-8">
           {isCandidate ? (
-            // Navegação para candidatos autenticados
             candidateNavItems.map((item) => (
               <Link
                 key={item.path}
@@ -52,7 +51,6 @@ export function Header() {
               </Link>
             ))
           ) : (
-            // Navegação para não autenticados
             <>
               <a href="#inicio" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
                 Início
@@ -72,7 +70,6 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
-            // Menu do usuário autenticado
             <>
               <Button
                 variant="ghost"
@@ -87,7 +84,6 @@ export function Header() {
               </Button>
             </>
           ) : (
-            // Botões de login/cadastro
             <>
               <Button
                 variant="ghost"

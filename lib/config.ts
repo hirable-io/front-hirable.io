@@ -15,7 +15,6 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3021
  * @returns The full URL
  */
 export function getApiUrl(endpoint: string): string {
-  // Remove leading slash if present to avoid double slashes
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
   return `${baseUrl}/${cleanEndpoint}`;
@@ -35,12 +34,14 @@ export const API_ENDPOINTS = {
     LIST_VACANCIES: '/company/vacancy',
     UPDATE_VACANCY: '/company/vacancy',
     DELETE_VACANCY: '/company/vacancy',
+    PROCESS_APPLICATION: '/company/job-application/process',
   },
   CANDIDATE: {
     GET: '/candidate',
     UPDATE: '/candidate',
     LIST_VACANCIES: '/candidate/vacancy',
     UPLOAD_RESUME: '/candidate/resume',
+    DELETE_FILE: '/candidate/file', // DELETE /candidate/file/:type (type: IMAGE | RESUME)
   },
   USER: {
     UPLOAD_PROFILE_IMAGE: '/user/profile-image',
@@ -48,6 +49,7 @@ export const API_ENDPOINTS = {
   JOB_APPLICATION: {
     APPLY: '/job/apply',
     LIST: '/job/applications',
+    FETCH_VACANCY_APPLICATIONS: '/job/vacancy/:vacancyId/applications',
   },
   TAGS: '/tags',
 } as const;

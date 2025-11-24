@@ -12,6 +12,7 @@ export interface CandidateProfileResponse {
   linkedInUrl?: string;
   resumeUrl?: string;
   imageUrl?: string; // Foto de perfil do candidato
+  bio?: string; // Biografia do candidato
   user: {
     id: string;
     email: string;
@@ -29,6 +30,9 @@ export interface UpdateCandidateRequest {
   fullName?: string;
   phone?: string;
   linkedInUrl?: string;
+  bio?: string;
+  imageUrl?: string | null; // Para remover a imagem, enviar string vazia "" ou null
+  resumeUrl?: string | null; // Para remover o currículo, enviar string vazia "" ou null
 }
 
 /**
@@ -60,15 +64,30 @@ class CandidateService {
 
   /**
    * Atualiza dados cadastrais do candidato.
-   * Campos opcionais: fullName, phone, linkedInUrl
+   * Campos opcionais: fullName, phone, linkedInUrl, imageUrl, resumeUrl
+   * Para remover imageUrl ou resumeUrl, envie string vazia "" ou null
    * 
    * @param data - Dados para atualização (parciais)
    * @returns Promise com perfil atualizado
    */
   async updateProfile(data: UpdateCandidateRequest): Promise<CandidateProfileResponse> {
+    const payload: Record<string, unknown> = {};
+    
+    if (data.fullName !== undefined) payload.fullName = data.fullName;
+    if (data.phone !== undefined) payload.phone = data.phone;
+    if (data.linkedInUrl !== undefined) payload.linkedInUrl = data.linkedInUrl;
+    if (data.bio !== undefined) payload.bio = data.bio;
+  
+    if (data.imageUrl !== undefined) {
+      payload.imageUrl = (data.imageUrl === "" || data.imageUrl === null) ? null : data.imageUrl;
+    }
+    if (data.resumeUrl !== undefined) {
+      payload.resumeUrl = (data.resumeUrl === "" || data.resumeUrl === null) ? null : data.resumeUrl;
+    }
+    
     return apiClient.put<CandidateProfileResponse>(
       API_ENDPOINTS.CANDIDATE.UPDATE,
-      data
+      payload
     );
   }
 
@@ -103,6 +122,30 @@ class CandidateService {
     return apiClient.postFormData<UploadResumeResponse>(
       API_ENDPOINTS.CANDIDATE.UPLOAD_RESUME,
       formData
+    );
+  }
+
+  /**
+   * Remove a imagem de perfil do candidato.
+   * Deleta o arquivo do S3 e atualiza o perfil.
+   * 
+   * @returns Promise com perfil atualizado ou undefined se a API retornar 204
+   */
+  async deleteProfileImage(): Promise<CandidateProfileResponse | undefined> {
+    return apiClient.delete<CandidateProfileResponse>(
+      `${API_ENDPOINTS.CANDIDATE.DELETE_FILE}/IMAGE`
+    );
+  }
+
+  /**
+   * Remove o currículo do candidato.
+   * Deleta o arquivo do S3 e atualiza o perfil.
+   * 
+   * @returns Promise com perfil atualizado ou undefined se a API retornar 204
+   */
+  async deleteResume(): Promise<CandidateProfileResponse | undefined> {
+    return apiClient.delete<CandidateProfileResponse>(
+      `${API_ENDPOINTS.CANDIDATE.DELETE_FILE}/RESUME`
     );
   }
 }

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,7 +20,6 @@ import { tagService, type Tag, type ApiError } from "@/lib/services/tag-service"
 import { vacancyService } from "@/lib/services/vacancy-service"
 import { cn } from "@/lib/utils"
 
-// Schema de validação
 const jobSchema = z
   .object({
     title: z.string().min(5, "Título deve ter pelo menos 5 caracteres"),
@@ -49,7 +49,7 @@ type JobForm = z.infer<typeof jobSchema>
 export default function NewJobPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [availableTags, setAvailableTags] = useState<Tag[]>([])
-  const [tagSearch, setTagSearch] = useState("") // Estado para o filtro de texto
+  const [tagSearch, setTagSearch] = useState("")
   const router = useRouter()
 
   const form = useForm<JobForm>({
@@ -100,7 +100,6 @@ export default function NewJobPage() {
     }
   }
 
-  // Filtra as tags disponíveis baseada na busca e remove as já selecionadas da lista
   const filterAvailableTags = (currentSelected: Tag[]) => {
     return availableTags.filter(
       (tag) =>
@@ -115,9 +114,13 @@ export default function NewJobPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-primary-foreground font-bold">V</span>
-              </div>
+              <Image
+                src="/images/hirable-logo.png"
+                alt="Logo Hirable.io"
+                width={32}
+                height={32}
+                className="object-cover"
+              />
               <span className="font-bold text-xl text-foreground">Hirable.io</span>
             </Link>
             <nav className="hidden md:flex items-center gap-6">
@@ -318,7 +321,6 @@ export default function NewJobPage() {
                             placeholder="Filtrar tags disponíveis..."
                             value={tagSearch}
                             onChange={(e) => setTagSearch(e.target.value)}
-                            // Impede que o Enter envie o formulário neste campo
                             onKeyDown={(e) => { if(e.key === 'Enter') e.preventDefault(); }}
                           />
                         </div>
@@ -333,7 +335,7 @@ export default function NewJobPage() {
                                 onClick={() => {
                                   const current = field.value || []
                                   field.onChange([...current, tag])
-                                  setTagSearch("") // Limpa busca após selecionar
+                                  setTagSearch("")
                                 }}
                               >
                                 <Plus className="h-3 w-3" />

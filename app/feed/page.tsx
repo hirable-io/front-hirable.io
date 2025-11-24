@@ -67,7 +67,6 @@ export default function FeedPage() {
     }
     setIsApplicationDialogOpen(false)
     setApplyingVacancy(null)
-    // Recarregar lista de vagas (a vaga será removida automaticamente pelo backend)
     loadVacancies(modalityFilter)
   }
 
