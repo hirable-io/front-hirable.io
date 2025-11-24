@@ -15,6 +15,8 @@ import { vacancyService, type VacancyResponse, type ApiError } from "@/lib/servi
 import { formatSalaryRange, formatDate, truncateText } from "@/lib/utils"
 import { getModalityLabel } from "@/lib/utils/application-status"
 import { ApplicationConfirmDialog } from "@/components/application-confirm-dialog"
+import { RoleGuard } from "@/components/role-guard"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function FeedPage() {
   const [modalityFilter, setModalityFilter] = useState<string | undefined>(undefined)
@@ -26,6 +28,15 @@ export default function FeedPage() {
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false)
   const [appliedVacancyIds, setAppliedVacancyIds] = useState<Set<string>>(new Set())
   const router = useRouter()
+  const { logout } = useAuth()
+
+  const handleLogout = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    logout()
+    window.location.href = '/'
+  }
 
   const loadVacancies = async (modality?: string) => {
     setIsLoading(true)
@@ -71,7 +82,8 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['CANDIDATE']}>
+      <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -102,7 +114,7 @@ export default function FeedPage() {
               <Button variant="outline" size="sm">
                 Configurações
               </Button>
-              <Button size="sm">Sair</Button>
+              <Button size="sm" onClick={handleLogout}>Sair</Button>
             </div>
           </div>
         </div>
@@ -291,5 +303,6 @@ export default function FeedPage() {
         />
       </div>
     </div>
+    </RoleGuard>
   )
 }

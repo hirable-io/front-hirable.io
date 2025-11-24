@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Menu, User } from "lucide-react"
+import { Menu } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -19,7 +19,20 @@ export function Header() {
     { label: 'Candidaturas', path: '/applications' },
   ]
 
+  const employerNavItems = [
+    { label: 'Dashboard', path: '/dashboard/employer' },
+  ]
+
   const isCandidate = isAuthenticated && user?.role === 'CANDIDATE'
+  const isEmployer = isAuthenticated && user?.role === 'EMPLOYER'
+
+  const handleLogout = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    logout()
+    window.location.href = '/'
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -38,6 +51,20 @@ export function Header() {
         <nav className="hidden md:flex items-center gap-8">
           {isCandidate ? (
             candidateNavItems.map((item) => (
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`text-sm font-medium transition-colors ${
+                  isActive(item.path)
+                    ? 'text-primary'
+                    : 'text-foreground hover:text-primary'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))
+          ) : isEmployer ? (
+            employerNavItems.map((item) => (
               <Link
                 key={item.path}
                 href={item.path}
@@ -75,7 +102,7 @@ export function Header() {
                 variant="ghost"
                 size="sm"
                 className="hidden md:inline-flex text-foreground hover:text-primary"
-                onClick={logout}
+                onClick={handleLogout}
               >
                 Sair
               </Button>

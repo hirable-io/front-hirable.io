@@ -19,6 +19,8 @@ import { toast } from "sonner"
 import { tagService, type Tag, type ApiError } from "@/lib/services/tag-service"
 import { vacancyService } from "@/lib/services/vacancy-service"
 import { cn } from "@/lib/utils"
+import { RoleGuard } from "@/components/role-guard"
+import { useAuth } from "@/hooks/use-auth"
 
 const jobSchema = z
   .object({
@@ -51,6 +53,15 @@ export default function NewJobPage() {
   const [availableTags, setAvailableTags] = useState<Tag[]>([])
   const [tagSearch, setTagSearch] = useState("")
   const router = useRouter()
+  const { logout } = useAuth()
+
+  const handleLogout = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    logout()
+    window.location.href = '/'
+  }
 
   const form = useForm<JobForm>({
     resolver: zodResolver(jobSchema),
@@ -109,7 +120,8 @@ export default function NewJobPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['EMPLOYER']}>
+      <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -135,7 +147,7 @@ export default function NewJobPage() {
               <Button variant="outline" size="sm">
                 Configurações
               </Button>
-              <Button size="sm">Sair</Button>
+              <Button size="sm" onClick={handleLogout}>Sair</Button>
             </div>
           </div>
         </div>
@@ -385,5 +397,6 @@ export default function NewJobPage() {
         </Card>
       </div>
     </div>
+    </RoleGuard>
   )
 }

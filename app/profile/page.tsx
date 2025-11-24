@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { ArrowLeft, Upload, FileText, User, Trash2, Camera } from 'lucide-react'
 import { candidateService, type CandidateProfileResponse, type UpdateCandidateRequest, type ApiError } from "@/lib/services/candidate-service"
+import { RoleGuard } from "@/components/role-guard"
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -331,7 +332,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['CANDIDATE']}>
+      <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <Link
@@ -646,5 +648,6 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+    </RoleGuard>
   )
 }

@@ -23,6 +23,7 @@ import { formatDate, formatSalaryRange } from "@/lib/utils"
 import { getApplicationStatusLabel, getStatusColor, getModalityLabel } from "@/lib/utils/application-status"
 import { ApplicationStatusDialog } from "@/components/application-status-dialog"
 import { CandidateDetailsDialog } from "@/components/candidate-details-dialog"
+import { RoleGuard } from "@/components/role-guard"
 
 const APPLICATIONS_PER_PAGE = 10
 
@@ -141,7 +142,8 @@ export default function JobCandidatesPage({ params }: { params: { id: string } }
   const hiredApplications = applications.filter((a) => a.status === 'HIRED').length
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['EMPLOYER']}>
+      <div className="min-h-screen bg-background">
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {isLoading ? "Carregando candidaturas..." : applications.length > 0 ? `${applications.length} candidaturas carregadas` : "Nenhuma candidatura encontrada"}
       </div>
@@ -486,5 +488,6 @@ export default function JobCandidatesPage({ params }: { params: { id: string } }
         />
       </div>
     </div>
+    </RoleGuard>
   )
 }

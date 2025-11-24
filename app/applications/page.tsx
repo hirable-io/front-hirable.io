@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { jobApplicationService, type JobApplicationResponse, type ApiError } from "@/lib/services/job-application-service"
 import { formatSalaryRange, formatDate, truncateText } from "@/lib/utils"
 import { getModalityLabel, getApplicationStatusLabel } from "@/lib/utils/application-status"
+import { RoleGuard } from "@/components/role-guard"
 
 export default function ApplicationsPage() {
   const router = useRouter()
@@ -46,7 +47,8 @@ export default function ApplicationsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['CANDIDATE']}>
+      <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Minhas Candidaturas</h1>
@@ -208,6 +210,7 @@ export default function ApplicationsPage() {
         )}
       </div>
     </div>
+    </RoleGuard>
   )
 }
 

@@ -32,6 +32,8 @@ import { toast } from "sonner"
 import { vacancyService, type VacancyResponse, type ApiError } from "@/lib/services/vacancy-service"
 import { formatSalaryRange, formatDate, truncateText } from "@/lib/utils"
 import { VacancyEditDialog } from "@/components/vacancy-edit-dialog"
+import { RoleGuard } from "@/components/role-guard"
+import { useAuth } from "@/hooks/use-auth"
 
 const VACANCIES_PER_PAGE = 5
 
@@ -48,6 +50,15 @@ export default function EmployerDashboard() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
+  const { logout } = useAuth()
+
+  const handleLogout = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    logout()
+    window.location.href = '/'
+  }
 
   const totalPages = Math.ceil(total / VACANCIES_PER_PAGE)
 
@@ -154,7 +165,8 @@ export default function EmployerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['EMPLOYER']}>
+      <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -173,16 +185,13 @@ export default function EmployerDashboard() {
               <Link href="/dashboard/employer" className="text-primary font-medium">
                 Dashboard
               </Link>
-              <Link href="/profile" className="text-muted-foreground hover:text-foreground transition-colors">
-                Perfil da Empresa
-              </Link>
             </nav>
 
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm">
                 Configurações
               </Button>
-              <Button size="sm">Sair</Button>
+              <Button size="sm" onClick={handleLogout}>Sair</Button>
             </div>
           </div>
         </div>
@@ -507,5 +516,6 @@ export default function EmployerDashboard() {
         </AlertDialog>
       </div>
     </div>
+    </RoleGuard>
   )
 }
