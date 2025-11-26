@@ -1,0 +1,21 @@
+{
+  "candidate": {
+    "basePhone": "11999999999",
+    "basePassword": "senha123456"
+  },
+  "employer": {
+    "basePhone": "11988888888",
+    "basePassword": "senha123456",
+    "baseCnpj": "12345678901234"
+  },
+  "vacancy": {
+    "defaultDescription": "Esta é uma vaga de teste criada automaticamente pelo Cypress. A vaga requer conhecimentos em tecnologias modernas e oferece excelentes benefícios para os candidatos selecionados.",
+    "defaultLocation": "São Paulo, SP",
+    "modalities": ["REMOTE", "HYBRID", "ONSITE"],
+    "defaultSalaryRange": {
+      "min": 5000,
+      "max": 8000
+    }
+  }
+}
+
